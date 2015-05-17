@@ -4,6 +4,7 @@ import datetime
 import feedparser
 import json
 import re
+import netaddr
 from logger import get_logger
 from csv import reader
 from itertools import ifilter
@@ -20,7 +21,17 @@ def indicator_type(indicator):
     elif re.match(domain_regex, indicator, re.IGNORECASE):
         return "FQDN"
     else:
-        return None
+	try:
+		## match both IPv4 and v6 but former is ruled out normally
+		ip = netaddr.IPAddress(indicator)
+		if ip.version == 6:
+			return "IPv6"
+	except:
+		try:
+			netaddr.IPNetwork(indicator)
+			return "Subnet"
+		except:
+        		return None
 
 
 def process_simple_list(response, source, direction):
@@ -145,6 +156,27 @@ def process_malwaregroup(response, source, direction):
             data.append((i, indicator_type(i), direction, source, '', date))
     return data
 
+def process_spamhaus(response, source, direction):
+    data = []
+    for line in response.splitlines():
+	if line.startswith('; Last-Modified: '):
+            date = line.partition('; Last-Modified: ')[2]
+        elif not line.startswith(';') and len(line) > 0:
+            i = line.partition(';')[0].strip()
+            data.append((i, indicator_type(i), direction, source, '', date))
+    return data
+
+## Ex: 104.145.233.121,8586,Malware C&C
+def process_sslabuse(response, source, direction):
+    data = []
+    for line in response.splitlines():
+	if line.startswith('# Last updated: '):
+            date = line.partition('# Last updated: ')[2].rstrip('# ')
+        if not line.startswith('#') and len(line) > 0:
+            i = line.partition(',')[0].strip()
+	    ## FIXME! where can we put DsPort, Malware Identification?
+            data.append((i, indicator_type(i), direction, source, '', date))
+    return data
 
 def thresh(input_file, output_file):
 
@@ -170,6 +202,7 @@ def thresh(input_file, output_file):
                     'sans': process_sans,
                     'http://www.nothink.org/blacklist/blacklist_ssh': process_simple_list,
                     'http://www.nothink.org/blacklist/blacklist_malware': process_simple_list,
+		    'sslbl.abuse.ch': process_sslabuse,
                     'abuse.ch': process_simple_list,
                     'packetmail': process_packetmail,
                     'autoshun': process_autoshun,
@@ -178,6 +211,8 @@ def thresh(input_file, output_file):
                     'dragonresearchgroup': process_drg,
                     'malwaregroup': process_malwaregroup,
                     'malc0de': process_simple_list,
+		    'spamhaus': process_spamhaus,
+                    'dan.me.uk': process_simple_list,
                     'file://': process_simple_list}
 
     # When we have plugins, this hack won't be necessary

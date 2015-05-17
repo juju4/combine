@@ -7,3 +7,5 @@ http://www.nothink.org/blacklist/blacklist_malware_dns.txt
 http://www.nothink.org/blacklist/blacklist_malware_http.txt
 http://www.nothink.org/blacklist/blacklist_malware_irc.txt
 https://feodotracker.abuse.ch/blocklist/?download=ipblocklist
+https://sslbl.abuse.ch/blacklist/sslipblacklist.csv
+https://www.dan.me.uk/torlist/
