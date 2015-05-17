@@ -104,6 +104,33 @@ def bale_enr_csvgz(harvest, output_file):
         bale_writer.writerows(harvest)
 
 
+def bale_reg_cef(harvest, output_file):
+    """ bale the data as a cef file"""
+    logger.info('Output regular data as CEF to %s' % output_file)
+    with open(output_file, 'wb') as cef_file:
+	for l in harvest:
+		if l[1] == 'IPv4':
+			cef_file.write('CEF:0|Combine|API|1.0|100|Known Malicious Host|1|src='+l[0]+' direction='+l[2]+' msg='+l[3]+"\n")
+		elif l[1] == 'FQDN':
+			cef_file.write('CEF:0|Combine|API|1.0|100|Known Malicious Domain|1|shost='+l[0]+' direction='+l[2]+' msg='+l[3]+"\n")
+		else:
+			## Only case seems to be IPv6 entries where l[1] == None
+			print "WARNING! unknow type: " + str(l)
+
+
+def bale_enr_cef(harvest, output_file):
+    """ output the data as an enriched CEF file"""
+    logger.info('Output enriched data as CEF to %s' % output_file)
+    with open(output_file, 'wb') as cef_file:
+        # (('entity', 'type', 'direction', 'source', 'notes', 'date', 'asnumber', 'asname', 'country', 'host', 'rhost'))
+	for l in harvest:
+		if l[1] == 'IPv4':
+			cef_file.write('CEF:0|Combine|API|1.0|100|Known Malicious Host|1|src='+l[0]+' direction='+l[2]+' msg='+l[3]+' asnumber='+l[5]+' asname='+l[6]+' country='+l[7]+"\n")
+		elif l[1] == 'FQDN':
+			cef_file.write('CEF:0|Combine|API|1.0|100|Known Malicious Domain|1|shost='+l[0]+' direction='+l[2]+' msg='+l[3]+"\n")
+		else:
+			print "WARNING! unknow type: " + str(l)
+
 def bale_CRITs_indicator(base_url, data, indicator_que):
     """ One thread of adding indicators to CRITs"""
     while not indicator_que.empty():
@@ -212,10 +239,11 @@ def bale(input_file, output_file, output_format, is_regular):
 
     # TODO: also need plugins here (cf. #23)
     if is_regular:
-        format_funcs = {'csv': bale_reg_csv, 'crits': bale_CRITs}
+        format_funcs = {'csv': bale_reg_csv, 'crits': bale_CRITs, 'cef' : bale_reg_cef }
     else:
-        format_funcs = {'csv': bale_enr_csv, 'crits': bale_CRITs}
+        format_funcs = {'csv': bale_enr_csv, 'crits': bale_CRITs, 'cef' : bale_enr_cef }
     format_funcs[output_format](harvest, output_file)
 
 if __name__ == "__main__":
     bale('crop.json', 'harvest.csv', 'csv', True)
+    #bale('crop.json', 'harvest.cef', 'cef', False)
