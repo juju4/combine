@@ -108,28 +108,32 @@ def bale_reg_cef(harvest, output_file):
     """ bale the data as a cef file"""
     logger.info('Output regular data as CEF to %s' % output_file)
     with open(output_file, 'wb') as cef_file:
-	for l in harvest:
+	try:
+	    for l in harvest:
 		if l[1] == 'IPv4':
 			cef_file.write('CEF:0|Combine|API|1.0|100|Known Malicious Host|1|src='+l[0]+' direction='+l[2]+' msg='+l[3]+"\n")
 		elif l[1] == 'FQDN':
 			cef_file.write('CEF:0|Combine|API|1.0|100|Known Malicious Domain|1|shost='+l[0]+' direction='+l[2]+' msg='+l[3]+"\n")
 		else:
-			## Only case seems to be IPv6 entries where l[1] == None
-			print "WARNING! unknow type: " + str(l)
-
+    			logger.debug("WARNING! unknow type: " + str(l))
+	except Exception, e:
+    		logger.error("Error " + str(e) + " with l " + str(l))
 
 def bale_enr_cef(harvest, output_file):
     """ output the data as an enriched CEF file"""
     logger.info('Output enriched data as CEF to %s' % output_file)
     with open(output_file, 'wb') as cef_file:
         # (('entity', 'type', 'direction', 'source', 'notes', 'date', 'asnumber', 'asname', 'country', 'host', 'rhost'))
-	for l in harvest:
+	try:
+	    for l in harvest:
 		if l[1] == 'IPv4':
 			cef_file.write('CEF:0|Combine|API|1.0|100|Known Malicious Host|1|src='+l[0]+' direction='+l[2]+' msg='+l[3]+' asnumber='+l[5]+' asname='+l[6]+' country='+l[7]+"\n")
 		elif l[1] == 'FQDN':
 			cef_file.write('CEF:0|Combine|API|1.0|100|Known Malicious Domain|1|shost='+l[0]+' direction='+l[2]+' msg='+l[3]+"\n")
 		else:
-			print "WARNING! unknow type: " + str(l)
+    			logger.debug("WARNING! unknow type: " + str(l))
+	except Exception, e:
+    		logger.error("Error " + str(e) + " with l " + str(l))
 
 def bale_CRITs_indicator(base_url, data, indicator_que):
     """ One thread of adding indicators to CRITs"""
