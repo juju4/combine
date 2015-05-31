@@ -1,0 +1,10 @@
+[Core]
+Name = bruteforceblocker
+Module = bruteforceblocker
+
+[Documentation]   
+Author = juju4
+Version = 0.1
+Website = http://lotsofplugins.com
+Description = bruteforceblocker
+

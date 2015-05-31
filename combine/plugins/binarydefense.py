@@ -1,13 +1,12 @@
-import re
 import datetime
 
 from yapsy.IPlugin import IPlugin
 
 
 class PluginOne(IPlugin):
-    NAME = "emergingthreats"
+    NAME = "binarydefense"
     DIRECTION = "outbound"
-    URLS = ['http://rules.emergingthreats.net/open/suricata/rules/compromised-ips.txt']
+    URLS = ['http://www.binarydefense.com/banlist.txt' ]
 
     def get_URLs(self):
         return self.URLS
@@ -25,5 +24,6 @@ class PluginOne(IPlugin):
             if not line.startswith('#') and len(line) > 0:
                 i = line.split()[0]
                 data.append({'indicator': i, 'indicator_type': "IPv4", 'indicator_direction': self.DIRECTION,
-                             'source_name': self.NAME, 'source': source, 'date': current_date})
+                                 'source_name': self.NAME, 'source': source, 'date': current_date})
         return data
+

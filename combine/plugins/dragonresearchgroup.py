@@ -22,17 +22,18 @@ class PluginOne(IPlugin):
 
     def process_data(self, source, response):
         data = []
-        current_date = str(datetime.date.today())
         for line in response.splitlines():
             if not line.startswith('#') and len(line) > 0:
                 i = line.split('|')[2].strip()
+                date = line.split('|')[3].strip()
+## FIXME! have AS(num+name) inside report, how to keep that
                 if 'sshpwauth' in source:
                     data.append({'indicator': i, 'indicator_type': "IPv4", 'indicator_direction': self.DIRECTION,
-                                 'source_name': self.NAME, 'source': source, 'note': 'sshpwauth', 'date': current_date})
+                                 'source_name': self.NAME, 'source': source, 'note': 'sshpwauth', 'date': date})
                 if 'vncprobe' in source:
                     data.append({'indicator': i, 'indicator_type': "IPv4", 'indicator_direction': self.DIRECTION,
-                                 'source_name': self.NAME, 'source': source, 'note': 'vncprobe', 'date': current_date})
+                                 'source_name': self.NAME, 'source': source, 'note': 'vncprobe', 'date': date})
                 if 'http-report' in source:
                     data.append({'indicator': i, 'indicator_type': "Subnet", 'indicator_direction': self.DIRECTION,
-                                 'source_name': self.NAME, 'source': source, 'note': 'http-report', 'date': current_date})
+                                 'source_name': self.NAME, 'source': source, 'note': 'http-report', 'date': date})
         return data

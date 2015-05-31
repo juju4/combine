@@ -1,0 +1,10 @@
+[Core]
+Name = binarydefense
+Module = binarydefense
+
+[Documentation]   
+Author = juju4
+Version = 0.1
+Website = http://lotsofplugins.com
+Description = binarydefense
+
