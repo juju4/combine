@@ -15,7 +15,7 @@ __version__ = '0.1.4'
 
 
 def main():
-    possible_file_types = ['csv', 'json', 'crits']
+    possible_file_types = ['csv', 'json', 'crits', 'cef' ]
 
     parser = argparse.ArgumentParser()
     parser.add_argument('--version', action='version', version='%(prog)s (version {0})'.format(__version__))

@@ -154,6 +154,45 @@ def bale_enr_csvgz(harvest, output_file):
             bale_writer.writerow(r)
 
 
+def bale_reg_cef(harvest, output_file):
+    """ bale the data as a cef file"""
+    logger.info('Output regular data as CEF to %s' % output_file)
+    with open(output_file, 'wb') as cef_file:
+	try:
+            for row in harvest:
+                r = []
+                for key in ['indicator', 'indicator_type', 'indicator_direction', 'source_name', 'note', 'date', 'domain', 'ip', 'url']:
+                    if key in row:
+                        r.append(row[key])
+                    else:
+                        r.append('')
+		try:
+                    for key in ['as_num', 'as_name', 'country', 'hostname', 'A', 'MX']:
+                        if key in row['enriched']:
+                            if key == 'A' or key == 'MX':
+                                r.append("|".join(row['enriched'][key]))
+                            else:
+                                r.append(row['enriched'][key])
+                        else:
+                            r.append('')
+		except:
+                    r += ['', '', '', '', '', '']
+		if r[1] == 'IPv4' or r[1] == 'IPv6':
+			cef_file.write('CEF:0|Combine|API|1.0|100|Known Malicious Host|1|src='+r[0]+' direction='+r[2]+' msg='+r[3]+' asnumber='+r[9]+' asname='+r[10]+' country='+r[11]+"\n")
+		elif r[1] == 'FQDN':
+			cef_file.write('CEF:0|Combine|API|1.0|100|Known Malicious Domain|1|shost='+r[0]+' direction='+r[2]+' msg='+r[3]+"\n")
+		elif r[1] == 'Subnet':
+			cef_file.write('CEF:0|Combine|API|1.0|100|Known Malicious Subnet|1|shost='+r[0]+' direction='+r[2]+' msg='+r[3]+"\n")
+		else:
+    			logger.debug("WARNING! unknow type: " + str(r))
+	except Exception, e:
+    		logger.error("Error " + str(e) + " with r " + str(r))
+
+def bale_enr_cef(harvest, output_file):
+    """ output the data as an enriched CEF file"""
+    logger.info('Output enriched data as CEF to %s' % output_file)
+    bale_reg_cef(harvest, output_file)
+
 def bale_CRITs_indicator(base_url, data, indicator_que):
     """ One thread of adding indicators to CRITs"""
     while not indicator_que.empty():
@@ -259,14 +298,13 @@ def bale(input_file, output_file, output_format, is_regular):
 
     # TODO: also need plugins here (cf. #23)
     if is_regular:
-        format_funcs = {'csv': bale_reg_csv, 'crits': bale_CRITs}
+        format_funcs = {'csv': bale_reg_csv, 'crits': bale_CRITs, 'cef' : bale_reg_cef }
     else:
-        format_funcs = {'csv': bale_enr_csv, 'crits': bale_CRITs}
+        format_funcs = {'csv': bale_enr_csv, 'crits': bale_CRITs, 'cef' : bale_enr_cef }
     format_funcs[output_format](harvest, output_file)
 
 
 def main():
     bale('crop.json', 'harvest.csv', 'csv', True)
+    bale('crop.json', 'harvest.cef', 'cef', False)
 
-if __name__ == "__main__":
-    main()
