@@ -3,6 +3,7 @@
 import argparse
 import os
 import sys
+from logging import getLogger
 
 from baler import bale
 from baler import tiq_output
@@ -13,6 +14,7 @@ from winnower import winnow
 
 __version__ = '0.1.4'
 
+logger = getLogger('combine')
 
 def main():
     possible_file_types = ['csv', 'json', 'crits', 'cef' ]
@@ -64,5 +66,8 @@ def main():
         os.remove(crop_filepath)
         os.remove(enrich_filepath)
 
+    logger.debug('end ?')
+
 if __name__ == "__main__":
     main()
+

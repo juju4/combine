@@ -11,6 +11,7 @@ from logging import getLogger
 import dns.resolver
 import dns.reversename
 import dnsdb_query
+import pypdns
 import pygeoip
 from netaddr import IPAddress
 from netaddr import IPRange
@@ -73,8 +74,8 @@ def enrich_IPv4(address, geo_data, dnsdb=None):
             result['hostname'] = hostname
         return {'enriched': result}
     except Exception, e:
-    	logger.error('enrich_IPv4: enrich address %s fails with error %s' % (address, e))
-	return {'enriched': {} }
+        logger.error('enrich_IPv4: enrich address %s fails with error %s' % (address, e))
+        return {'enriched': {} }
 
 def enrich_FQDN(address, date, dnsdb=None):
     try:
@@ -99,8 +100,25 @@ def enrich_FQDN(address, date, dnsdb=None):
             result['A'] = a
         return {'enriched': result}
     except Exception, e:
-    	logger.error('enrich_FQDN: enrich address %s fails with error %s' % (address, e))
-	return {'enriched': {} }
+        logger.error('enrich_FQDN: enrich address %s fails with error %s' % (address, e))
+        return {'enriched': {} }
+
+def enrich_PDNS(address, date):
+    try:
+        result = {}
+        ip_addr = ''
+        records = pdns.query(address)
+        date_dt = dt.datetime.strptime(date, '%Y-%m-%d')
+        records = []
+        for p in records:
+            if p[u'rrtype'] == u'A' and p[u'time_last'] > date_dt:
+                records.append(p[u'rdata'])
+        ip_addr = maxhits(records)
+        result['dnsdb'] = ip_addr
+        return {'enriched': result}
+    except Exception, e:
+        logger.error('enrich_PDNS: enrich address %s fails with error %s' % (address, e))
+        return {'enriched': {} }
 
 def enrich_hash(hash):
     # TODO something useful here
@@ -126,18 +144,18 @@ def reserved(address):
 
 def is_ipv4(address):
     try:
-    	ip = IPAddress(address)
-	if ip.version == 4:
-	    return True
+        ip = IPAddress(address)
+        if ip.version == 4:
+            return True
     except:
         return False
 
 
 def is_ipv6(address):
     try:
-    	ip = IPAddress(address)
-	if ip.version == 6:
-	    return True
+        ip = IPAddress(address)
+        if ip.version == 6:
+            return True
     except:
         return False
 
@@ -167,19 +185,33 @@ def winnow(in_file, out_file, enr_file):
     else:
         logger.info('Enriching DNS indicators: FALSE')
 
+    enrich_dnsdb = config.getboolean('Winnower', 'enrich_dnsdb')
+    if enrich_dnsdb:
+        logger.info('Enriching DNSDB indicators: TRUE')
+        # handle the case where we aren't using DNSDB
+        logger.info('Setting up DNSDB client')
+        dnsdb = dnsdb_query.DnsdbClient(server, api)
+        if api == 'YOUR_API_KEY_HERE' or len(dnsdb.query_rdata_name('google.com')) == 0:
+            dnsdb = None
+            logger.info('Invalid DNSDB configuration found')
+    else:
+        logger.info('Enriching DNSDB indicators: FALSE')
+        dnsdb = None
+
+    enrich_pdns = config.getboolean('Winnower', 'enrich_pdns')
+    if enrich_pdns:
+        pdns_api_user = config.get('Winnower', 'pdns_api_user')
+        pdns_api_pass = config.get('Winnower', 'pdns_api_pass')
+        logger.info('Enriching Passive DNS indicators: TRUE')
+        pdns = pypdns.PyPDNS(basic_auth=(pdns_api_user, pdns_api_pass))
+    else:
+        logger.info('Enriching Passive DNS indicators: FALSE')
+
     enrich_hash = config.getboolean('Winnower', 'enrich_hash')
     if enrich_hash:
         logger.info('Enriching Hash indicators: TRUE')
     else:
         logger.info('Enriching Hash indicators: FALSE')
-
-    logger.info('Setting up DNSDB client')
-
-    # handle the case where we aren't using DNSDB
-    dnsdb = dnsdb_query.DnsdbClient(server, api)
-    if api == 'YOUR_API_KEY_HERE' or len(dnsdb.query_rdata_name('google.com')) == 0:
-        dnsdb = None
-        logger.info('Invalid DNSDB configuration found')
 
     with open(in_file, 'rb') as f:
         crop = json.load(f)
@@ -224,8 +256,10 @@ def winnow(in_file, out_file, enr_file):
         elif indicator_type == 'FQDN' and uniaccept.verifytldoffline(indicator, "./tld-list.txt"):
             wheat.append(each)
             # TODO: this needs logic from v0.1.2 brought forward
-            if enrich_dns:
+            if enrich_dns or enrich_dnsdb:
                 enriched.append(dict(each.items() + enrich_FQDN(indicator, each['date'], dnsdb).items()))
+            elif enrich_pdns:
+                enriched.append(dict(each.items() + enrich_PDNS(indicator, each['date']).items()))
         elif indicator_type == 'HASH':
             wheat.append(each)
             if enrich_hash:

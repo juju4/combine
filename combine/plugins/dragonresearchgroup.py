@@ -7,7 +7,9 @@ class PluginOne(IPlugin):
     NAME = "dragonresearchgroup"
     DIRECTION = "inbound"
     URLS = ['http://dragonresearchgroup.org/insight/sshpwauth.txt',
-            'http://dragonresearchgroup.org/insight/vncprobe.txt']
+            'http://dragonresearchgroup.org/insight/vncprobe.txt',
+            'https://dragonresearchgroup.org/insight/http-report.txt'
+            ]
 
     def get_URLs(self):
         return self.URLS
@@ -30,4 +32,7 @@ class PluginOne(IPlugin):
                 if 'vncprobe' in source:
                     data.append({'indicator': i, 'indicator_type': "IPv4", 'indicator_direction': self.DIRECTION,
                                  'source_name': self.NAME, 'source': source, 'note': 'vncprobe', 'date': current_date})
+                if 'http-report' in source:
+                    data.append({'indicator': i, 'indicator_type': "Subnet", 'indicator_direction': self.DIRECTION,
+                                 'source_name': self.NAME, 'source': source, 'note': 'http-report', 'date': current_date})
         return data

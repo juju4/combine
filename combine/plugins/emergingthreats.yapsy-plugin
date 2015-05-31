@@ -1,0 +1,10 @@
+[Core]
+Name = emergingthreats
+Module = emergingthreats
+
+[Documentation]   
+Author = juju4
+Version = 0.1
+Website = http://lotsofplugins.com
+Description = Compromised IP by EmergingThreats
+

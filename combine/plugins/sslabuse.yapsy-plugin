@@ -1,0 +1,10 @@
+[Core]
+Name = sslabuse
+Module = sslabuse
+
+[Documentation]   
+Author = juju4
+Version = 0.1
+Website = http://lotsofplugins.com
+Description = list of "bad" SSL certificates identified by abuse.ch to be associated with malware or botnet activities
+

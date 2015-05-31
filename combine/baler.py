@@ -158,7 +158,7 @@ def bale_reg_cef(harvest, output_file):
     """ bale the data as a cef file"""
     logger.info('Output regular data as CEF to %s' % output_file)
     with open(output_file, 'wb') as cef_file:
-	try:
+        try:
             for row in harvest:
                 r = []
                 for key in ['indicator', 'indicator_type', 'indicator_direction', 'source_name', 'note', 'date', 'domain', 'ip', 'url']:
@@ -166,7 +166,7 @@ def bale_reg_cef(harvest, output_file):
                         r.append(row[key])
                     else:
                         r.append('')
-		try:
+                try:
                     for key in ['as_num', 'as_name', 'country', 'hostname', 'A', 'MX']:
                         if key in row['enriched']:
                             if key == 'A' or key == 'MX':
@@ -175,18 +175,18 @@ def bale_reg_cef(harvest, output_file):
                                 r.append(row['enriched'][key])
                         else:
                             r.append('')
-		except:
+                except:
                     r += ['', '', '', '', '', '']
-		if r[1] == 'IPv4' or r[1] == 'IPv6':
-			cef_file.write('CEF:0|Combine|API|1.0|100|Known Malicious Host|1|src='+r[0]+' direction='+r[2]+' msg='+r[3]+' asnumber='+r[9]+' asname='+r[10]+' country='+r[11]+"\n")
-		elif r[1] == 'FQDN':
-			cef_file.write('CEF:0|Combine|API|1.0|100|Known Malicious Domain|1|shost='+r[0]+' direction='+r[2]+' msg='+r[3]+"\n")
-		elif r[1] == 'Subnet':
-			cef_file.write('CEF:0|Combine|API|1.0|100|Known Malicious Subnet|1|shost='+r[0]+' direction='+r[2]+' msg='+r[3]+"\n")
-		else:
-    			logger.debug("WARNING! unknow type: " + str(r))
-	except Exception, e:
-    		logger.error("Error " + str(e) + " with r " + str(r))
+                if r[1] == 'IPv4' or r[1] == 'IPv6':
+                    cef_file.write('CEF:0|Combine|API|1.0|100|Known Malicious Host|1|src='+r[0]+' direction='+r[2]+' msg='+r[3]+' asnumber='+r[9]+' asname='+r[10]+' country='+r[11]+"\n")
+                elif r[1] == 'FQDN':
+                    cef_file.write('CEF:0|Combine|API|1.0|100|Known Malicious Domain|1|shost='+r[0]+' direction='+r[2]+' msg='+r[3]+"\n")
+                elif r[1] == 'Subnet':
+                    cef_file.write('CEF:0|Combine|API|1.0|100|Known Malicious Subnet|1|shost='+r[0]+' direction='+r[2]+' msg='+r[3]+"\n")
+                else:
+                    logger.debug("WARNING! unknow type: " + str(r))
+        except Exception, e:
+            logger.error("Error " + str(e) + " with r " + str(r))
 
 def bale_enr_cef(harvest, output_file):
     """ output the data as an enriched CEF file"""
@@ -306,5 +306,6 @@ def bale(input_file, output_file, output_format, is_regular):
 
 def main():
     bale('crop.json', 'harvest.csv', 'csv', True)
+    #bale('crop.json', 'harvest.csv', 'csv', False) ## FIXME! broken?
     bale('crop.json', 'harvest.cef', 'cef', False)
 

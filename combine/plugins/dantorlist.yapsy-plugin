@@ -1,0 +1,10 @@
+[Core]
+Name = dantorlist
+Module = dantorlist
+
+[Documentation]   
+Author = juju4
+Version = 0.1
+Website = http://lotsofplugins.com
+Description = Tor Node List from dan.me.uk (403 if fetching more than once/30min)
+
