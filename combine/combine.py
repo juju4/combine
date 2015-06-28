@@ -17,7 +17,7 @@ __version__ = '0.1.4'
 logger = getLogger('combine')
 
 def main():
-    possible_file_types = ['csv', 'json', 'crits', 'cef' ]
+    possible_file_types = ['csv', 'json', 'crits', 'cef', 'sql' ]
 
     parser = argparse.ArgumentParser()
     parser.add_argument('--version', action='version', version='%(prog)s (version {0})'.format(__version__))

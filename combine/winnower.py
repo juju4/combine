@@ -17,6 +17,7 @@ from netaddr import IPAddress
 from netaddr import IPRange
 from netaddr import IPSet
 from sortedcontainers import SortedDict
+import datetime
 
 import uniaccept
 
@@ -60,22 +61,50 @@ def maxhits(dns_records):
     return hostname
 
 
-def enrich_IPv4(address, geo_data, dnsdb=None):
+def enrich_IPv4(address, geo_data, dnsdb=None, pdns=None):
+    result = {}
     try:
-        result = {}
         result['as_num'], result['as_name'] = org_by_addr(address)
         result['country'] = geo_data.country_code_by_addr('%s' % address)
+    except Exception, e:
+        logger.error('enrich_IPv4: enrich address (geo) %s fails with error %s' % (address, e))
+    try:
         hostname = None
         if dnsdb:
             result['dnsdb'] = maxhits(dnsdb.query_rdata_ip('%s' % address))
-        a = dns.reversename.from_address(address)
-        hostname = dns.resolver.query(a, "PTR")[0].to_text()
-        if hostname:
-            result['hostname'] = hostname
-        return {'enriched': result}
     except Exception, e:
-        logger.error('enrich_IPv4: enrich address %s fails with error %s' % (address, e))
-        return {'enriched': {} }
+        logger.error('enrich_IPv4: enrich address (dnsdb) %s fails with error %s' % (address, e))
+    try:
+        if pdns:
+            result2 = enrich_PDNS(address, pdns)
+            result.update(result2)
+    except Exception, e:
+        logger.error('enrich_IPv4: enrich address (pdns) %s fails with error %s' % (address, e))
+    try:
+        ## FIXME! 38.108.6.5 fails with error 'IPAddress' object has no attribute 'split' (python shell: NXDOMAIN)
+        ##      46.188.29.17 'broadband-46-188-29-17.2com.net.'
+#        a = dns.reversename.from_address(address)
+#        hostname = dns.resolver.query(a, "PTR")[0].to_text()
+#        if hostname:
+#            result['hostname'] = hostname
+        ## socket OK
+        import socket
+        reversed_dns = socket.gethostbyaddr(str(address))
+        if reversed_dns[0]:
+            result['hostname'] = reversed_dns[0]
+        ## with adns OK
+#        import adns
+#        c=adns.init()
+#        a, b, cc, d = c.synchronous('.'.join(reversed(str(address).split('.'))) + ".in-addr.arpa.", adns.rr.PTR)
+#        result['hostname'] = d[0]
+
+    except Exception, e:
+        logger.error('enrich_IPv4: enrich address (dns) %s fails with error %s' % (address, e))
+#        import os, sys, traceback
+#        print '-'*60
+#        traceback.print_exc(file=sys.stdout)
+#        print '-'*60
+    return {'enriched': result}
 
 def enrich_FQDN(address, date, dnsdb=None):
     try:
@@ -103,22 +132,47 @@ def enrich_FQDN(address, date, dnsdb=None):
         logger.error('enrich_FQDN: enrich address %s fails with error %s' % (address, e))
         return {'enriched': {} }
 
-def enrich_PDNS(address, date):
+def enrich_PDNS(address, pdns):
     try:
         result = {}
         ip_addr = ''
+        count = counta = countns = countmx = anomaly = 0
+        time_first = datetime.datetime.utcnow()
+        time_last = datetime.datetime(1970, 1, 1, 0, 0)
         records = pdns.query(address)
-        date_dt = dt.datetime.strptime(date, '%Y-%m-%d')
+        #date_dt = dt.datetime.strptime(date, '%Y-%m-%d')
         records = []
         for p in records:
-            if p[u'rrtype'] == u'A' and p[u'time_last'] > date_dt:
-                records.append(p[u'rdata'])
-        ip_addr = maxhits(records)
-        result['dnsdb'] = ip_addr
-        return {'enriched': result}
+            if p[u'time_first'] < time_first:
+                time_first = p[u'time_first']
+            if p[u'time_last'] > time_last:
+                time_last = p[u'time_last']
+            if p[u'rrtype'] == u'A':
+                counta += 1
+            elif p[u'rrtype'] == u'NS':
+                countns += 1
+            elif p[u'rrtype'] == u'MX':
+                countmx += 1
+            count += 1
+            if time_first > (datetime.datetime.now() + datetime.timedelta(days=-7)):
+                anomaly = 2
+            if counta == 0 or countns == 0:
+                anomaly = 1
+            if counta > 20:
+                anomaly = 2
+            if countns > 10:
+                anomaly = 2
+        result['pdns_json'] = records
+        result['pdns_anomaly'] = anomaly
+        result['pdns_counta'] = counta
+        result['pdns_countns'] = countns
+        result['pdns_countmx'] = countmx
+        result['pdns_timefirst'] = time_first
+        result['pdns_timelast'] = time_last
+        return result
     except Exception, e:
         logger.error('enrich_PDNS: enrich address %s fails with error %s' % (address, e))
-        return {'enriched': {} }
+        return None
 
 def enrich_hash(hash):
     # TODO something useful here
@@ -203,9 +257,11 @@ def winnow(in_file, out_file, enr_file):
         pdns_api_user = config.get('Winnower', 'pdns_api_user')
         pdns_api_pass = config.get('Winnower', 'pdns_api_pass')
         logger.info('Enriching Passive DNS indicators: TRUE')
+        logger.info('Enriching Passive DNS indicators: User %s' % pdns_api_user)
         pdns = pypdns.PyPDNS(basic_auth=(pdns_api_user, pdns_api_pass))
     else:
         logger.info('Enriching Passive DNS indicators: FALSE')
+        pdns = None
 
     enrich_hash = config.getboolean('Winnower', 'enrich_hash')
     if enrich_hash:
@@ -245,9 +301,9 @@ def winnow(in_file, out_file, enr_file):
             if not reserved(ipaddr):
                 wheat.append(each)
                 if enrich_ip:
-                    enriched.append(dict(each.items() + enrich_IPv4(ipaddr, geo_data, dnsdb).items()))
+                    enriched.append(dict(each.items() + enrich_IPv4(ipaddr, geo_data, dnsdb, pdns).items()))
                 else:
-                    enriched.append(dict(each.items() + enrich_IPv4(ipaddr, geo_data).items()))
+                    enriched.append(dict(each.items() + enrich_IPv4(ipaddr, geo_data, None, pdns).items()))
             else:
                 logger.error('Found invalid address: %s from: %s' % (indicator, each['source']))
         elif (indicator_type == 'IPv4' or indicator_type == 'IPv6') and is_ipv6(indicator):  # generic cleanup

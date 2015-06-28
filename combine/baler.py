@@ -12,6 +12,10 @@ from Queue import Queue
 
 import requests
 import unicodecsv
+#import sqlalchemy
+#from sqlalchemy.sql import table, column, select, update, insert
+from sqlalchemy import *
+from sqlalchemy.orm import create_session
 
 logger = getLogger('baler')
 
@@ -111,9 +115,7 @@ def bale_enr_csv(harvest, output_file):
                     r.append(row[key])
                 else:
                     r.append('')
-            if not row['enriched']:
-                r += ['', '', '', '', '', '']
-            else:
+            try:
                 for key in ['as_num', 'as_name', 'country', 'hostname', 'A', 'MX']:
                     if key in row['enriched']:
                         if key == 'A' or key == 'MX':
@@ -122,6 +124,9 @@ def bale_enr_csv(harvest, output_file):
                             r.append(row['enriched'][key])
                     else:
                         r.append('')
+            except:
+            #if not row['enriched']:
+                r += ['', '', '', '', '', '']
             bale_writer.writerow(r)
 
 
@@ -161,7 +166,7 @@ def bale_reg_cef(harvest, output_file):
         try:
             for row in harvest:
                 r = []
-                for key in ['indicator', 'indicator_type', 'indicator_direction', 'source_name', 'note', 'date', 'domain', 'ip', 'url']:
+                for key in ['indicator', 'indicator_type', 'indicator_direction', 'source_name', 'notes', 'date', 'domain', 'ip', 'url']:
                     if key in row:
                         r.append(row[key])
                     else:
@@ -283,6 +288,97 @@ def bale_CRITs(harvest, filename):
     logger.info('Output %d indicators to CRITs using %d threads. Operation tool %d seconds\n' %
                 (total_iocs, maxThreads, time.time() - start_time))
 
+def bale_reg_sql0(harvest, output_file):
+    """ bale the data as a sql file"""
+    logger.info('Output regular data as SQL to %s' % output_file)
+    engine = create_engine(output_file)
+    metadata = MetaData(bind=engine)
+    table = 'harvest'
+    fields = ['indicator', 'indicator_type', 'indicator_direction', 'source_name', 'notes', 'date']
+
+    ## create table if not existing
+    t = Table(table, metadata,
+        Column('indicator', String(100), primary_key=True),
+        Column('indicator_type', String(10), primary_key=True),
+        Column('indicator_direction', String(10)),
+        Column('source_name', String(30)),
+#        Column('notes', String(100)),
+        Column('date', String(20), primary_key=True),
+        )
+    t.create(checkfirst=True)
+    mytable = Table(table, metadata, autoload=True)
+
+    session = create_session(bind=engine)
+    for row in harvest:
+        #values = [ row['indicator'], row['indicator_type'], row['indicator_direction'], row['source_name'], row['notes'], row['date'] ]
+        values = [ row['indicator'], row['indicator_type'], row['indicator_direction'], row['source_name'], row['date'] ]
+        i = insert(table)
+	print table
+	print values
+        i = i.values(values)
+        print row
+        print str(i)
+        session.execute(i)
+        #print "INSERT INTO %s (%s) VALUES (%s);" % (table, [ row['indicator'], row['indicator_type'], row['indicator_direction'], row['source_name'], row['note'], row['date'] ], values)
+
+def bale_reg_sql(harvest, output_file):
+    """ bale the data as a sql file"""
+    logger.info('Output regular data as SQL to %s' % output_file)
+    engine = create_engine(output_file)
+    res1 = engine.execute("create table if not exists harvest(indicator varchar(128), indicator_type varchar(32), indicator_direction varchar(8), source_name varchar(32), notes varchar(128), date timestamp, PRIMARY KEY (indicator,source_name,date) )")
+    table = 'harvest'
+    fields = ['indicator', 'indicator_type', 'indicator_direction', 'source_name', 'notes', 'date']
+
+    for row in harvest:
+        #values = [ row['indicator'], row['indicator_type'], row['indicator_direction'], row['source_name'], row['notes'], row['date'] ]
+        values = [ row['indicator'], row['indicator_type'], row['indicator_direction'], row['source_name'], '', row['date'] ]
+        try:
+            ## IMPROVE? fail gracefully on primary key. http://www.postgresql.org/message-id/CAD8_UcYgTcg7ZTjuOzt8hbFGLjFgrbHpCAW6aU=CprC7sUD6fw@mail.gmail.com
+            res2 = engine.execute("insert into harvest values('%s', '%s', '%s', '%s', '%s', '%s')" % (row['indicator'], row['indicator_type'], row['indicator_direction'], row['source_name'], '', row['date']))
+            #res2 = engine.execute("insert into harvest values('%s', '%s', '%s', '%s', '%s', '%s')" % (row['indicator'], row['indicator_type'], row['indicator_direction'], row['source_name'], row['notes'], row['date']))
+        except Exception, e:
+            print "Exception: " + str(e)
+            import os, sys, traceback
+            print '-'*60
+            traceback.print_exc(file=sys.stdout)
+            print '-'*60
+
+def bale_enr_sql(harvest, output_file):
+    """ output the data as an enriched sql file"""
+    logger.info('Output enriched data as SQL to %s' % output_file)
+    engine = create_engine(output_file)
+    res1 = engine.execute("create table if not exists harvest_enr(indicator varchar(128), indicator_type varchar(32), indicator_direction varchar(8), source_name varchar(32), notes varchar(128), date timestamp, url varchar(256), domain varchar(256), ip varchar(15), asnumber varchar(10), asname varchar(128), country varchar(8), hostname varchar(256), ips varchar(256), mx varchar(256), PRIMARY KEY (indicator,source_name,date) )")
+
+    for row in harvest:
+            r = []
+            for key in ['indicator', 'indicator_type', 'indicator_direction', 'source_name', 'note', 'date', 'domain', 'ip', 'url']:
+                if key in row:
+                    r.append(row[key])
+                else:
+                    r.append('')
+            try:
+                for key in ['as_num', 'as_name', 'country', 'hostname', 'A', 'MX']:
+                    if key in row['enriched']:
+                        if key == 'A' or key == 'MX':
+                            r.append("|".join(row['enriched'][key]))
+                        else:
+                            r.append(row['enriched'][key])
+                    else:
+                        r.append('')
+            except:
+                r += ['', '', '', '', '', '']
+            try:
+                ## IMPROVE? fail gracefully on primary key. http://www.postgresql.org/message-id/CAD8_UcYgTcg7ZTjuOzt8hbFGLjFgrbHpCAW6aU=CprC7sUD6fw@mail.gmail.com
+                #res2 = engine.execute("insert into harvest_enr values(%s, %s, %s, %s, %s, %s, %s, %s, %s, %s::integer, %s, %s, %s, %s, %s)", r)
+                res2 = engine.execute("insert into harvest_enr values(%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)", r)
+            except Exception, e:
+                print "Exception: " + str(e)
+                import os, sys, traceback
+                print '-'*60
+                traceback.print_exc(file=sys.stdout)
+                print '-'*60
+                break
+
 
 def bale(input_file, output_file, output_format, is_regular):
     config = ConfigParser.SafeConfigParser()
@@ -298,14 +394,17 @@ def bale(input_file, output_file, output_format, is_regular):
 
     # TODO: also need plugins here (cf. #23)
     if is_regular:
-        format_funcs = {'csv': bale_reg_csv, 'crits': bale_CRITs, 'cef' : bale_reg_cef }
+        format_funcs = {'csv': bale_reg_csv, 'crits': bale_CRITs, 'cef' : bale_reg_cef, 'sql' : bale_reg_sql }
     else:
-        format_funcs = {'csv': bale_enr_csv, 'crits': bale_CRITs, 'cef' : bale_enr_cef }
+        format_funcs = {'csv': bale_enr_csv, 'crits': bale_CRITs, 'cef' : bale_enr_cef, 'sql' : bale_enr_sql }
     format_funcs[output_format](harvest, output_file)
 
 
 def main():
-    bale('crop.json', 'harvest.csv', 'csv', True)
-    #bale('crop.json', 'harvest.csv', 'csv', False) ## FIXME! broken?
-    bale('crop.json', 'harvest.cef', 'cef', False)
+    #bale('crop.json', 'harvest.csv', 'csv', True)
+    bale('enriched.json', 'harvest.csv', 'csv', False)
+    #bale('enriched.json', 'harvest.cef', 'cef', False)
+    #bale('crop.json', 'sqlite:///harvest.sqlite', 'sql', True)
+    #bale('crop.json', 'postgresql://combine:combine@localhost:5432/harvest', 'sql', True)
+    bale('enriched.json', 'postgresql://combine:combine@localhost:5432/harvest', 'sql', False)
 
