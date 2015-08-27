@@ -183,13 +183,36 @@ def bale_reg_cef(harvest, output_file):
                 except:
                     r += ['', '', '', '', '', '']
                 if r[1] == 'IPv4' or r[1] == 'IPv6':
-                    cef_file.write('CEF:0|Combine|API|1.0|100|Known Malicious Host|1|src='+r[0]+' direction='+r[2]+' msg='+r[3]+' asnumber='+r[9]+' asname='+r[10]+' country='+r[11]+"\n")
+                    cef_str = 'CEF:0|Combine|API|1.0|100|Known Malicious Host|1|src='+r[0]+' direction='+r[2]+' msg='+r[3]+' asnumber='+r[9]+' asname='+r[10]+' country='+r[11]+"\n"
                 elif r[1] == 'FQDN':
-                    cef_file.write('CEF:0|Combine|API|1.0|100|Known Malicious Domain|1|shost='+r[0]+' direction='+r[2]+' msg='+r[3]+"\n")
+                    cef_str = 'CEF:0|Combine|API|1.0|100|Known Malicious Domain|1|shost='+r[0]+' direction='+r[2]+' msg='+r[3]+"\n"
                 elif r[1] == 'Subnet':
-                    cef_file.write('CEF:0|Combine|API|1.0|100|Known Malicious Subnet|1|shost='+r[0]+' direction='+r[2]+' msg='+r[3]+"\n")
+                    cef_str = 'CEF:0|Combine|API|1.0|100|Known Malicious Subnet|1|shost='+r[0]+' direction='+r[2]+' msg='+r[3]+"\n"
                 else:
                     logger.debug("WARNING! unknow type: " + str(r))
+		    continue
+		cef_file.write(cef_str)
+
+		import logging
+		from logging.handlers import SysLogHandler
+		import socket
+		class ContextFilter(logging.Filter):
+		  hostname = socket.gethostname()
+
+		  def filter(self, record):
+		        record.hostname = ContextFilter.hostname
+			return True
+		loggersyslog = logging.getLogger()
+		loggersyslog.setLevel(logging.INFO)
+		syslog = SysLogHandler(address='/dev/log')
+		#syslog = logging.handlers.SysLogHandler(address = ('IP', PORT))
+		#formatter = logging.Formatter('%(name)s: %(levelname)s %(message)s')
+		formatter = logging.Formatter('combine: %(message)s')
+		syslog.setFormatter(formatter)
+		loggersyslog.addHandler(syslog)
+		loggersyslog.info(cef_str)
+		## testing = do once to not flood syslog
+                #break
         except Exception, e:
             logger.error("Error " + str(e) + " with r " + str(r))
 
@@ -372,12 +395,12 @@ def bale_enr_sql(harvest, output_file):
                 #res2 = engine.execute("insert into harvest_enr values(%s, %s, %s, %s, %s, %s, %s, %s, %s, %s::integer, %s, %s, %s, %s, %s)", r)
                 res2 = engine.execute("insert into harvest_enr values(%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)", r)
             except Exception, e:
-                print "Exception: " + str(e)
-                import os, sys, traceback
-                print '-'*60
-                traceback.print_exc(file=sys.stdout)
-                print '-'*60
-                break
+                print "Exception on " + row['indicator'] + ": " + str(e)
+#                import os, sys, traceback
+#                print '-'*60
+#                traceback.print_exc(file=sys.stdout)
+#                print '-'*60
+#                break
 
 
 def bale(input_file, output_file, output_format, is_regular):
@@ -397,6 +420,7 @@ def bale(input_file, output_file, output_format, is_regular):
         format_funcs = {'csv': bale_reg_csv, 'crits': bale_CRITs, 'cef' : bale_reg_cef, 'sql' : bale_reg_sql }
     else:
         format_funcs = {'csv': bale_enr_csv, 'crits': bale_CRITs, 'cef' : bale_enr_cef, 'sql' : bale_enr_sql }
+    logger.info('Output %s to %s, format %s' % (input_file, output_file, output_format))
     format_funcs[output_format](harvest, output_file)
 
 

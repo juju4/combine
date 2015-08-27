@@ -39,8 +39,10 @@ def main():
     def filepath(filename):
         return os.path.join(args.output_dir, filename)
 
-    if args.file:
+    if args.file and args.file_type is not 'sql':
         out_filepath = filepath(args.file)
+    elif args.file and args.file_type is 'sql':
+	out_filepath = args.file
     else:
         out_filepath = filepath('harvest.' + args.file_type)
 
