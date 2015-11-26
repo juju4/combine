@@ -230,7 +230,7 @@ def bale_CRITs_indicator(base_url, data, indicator_que):
             url = base_url + 'ips/'
             data['add_indicator'] = "true"
             data['ip'] = indicator['indicator']
-            data['ip_type'] = 'Address - ipv4-addr'
+            data['ip_type'] = 'IPv4 Address'
             # source = the actual URL and source_name = name in the plugin
             data['reference'] = indicator['source']
             if 'source_name' in indicator:
